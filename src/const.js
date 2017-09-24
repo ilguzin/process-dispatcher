@@ -1,0 +1,5 @@
+
+export const COMMANDS = {
+  MODULE_PROCESS_COMMAND_INIT: 'init',
+  MODULE_PROCESS_COMMAND_INVOKE: 'invoke'
+};

@@ -1,0 +1,52 @@
+{
+  "name": "process-dispatcher",
+  "version": "1.0.0",
+  "description": "JavaScript process dispatcher backed by NodeJS Child Processes functionality. Intended to wrap any native NodeJS module to make it executable in subprocess. Interprocess messaging works via IPC",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "node_modules/babel-cli/bin/babel.js src --out-dir lib",
+    "test": "node_modules/cross-env/dist/bin/cross-env.js NODE_ENV=test nyc mocha -R spec test/*.test.js",
+    "prepublish": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ilguzin/process-dispatcher.git"
+  },
+  "author": "Denis Ilguzin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ilguzin/process-dispatcher/issues"
+  },
+  "homepage": "https://github.com/ilguzin/process-dispatcher#readme",
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-core": "6.26.0",
+    "babel-loader": "^7.1.2",
+    "babel-plugin-add-module-exports": "^0.2.1",
+    "babel-plugin-istanbul": "^4.1.5",
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.26.0",
+    "babel-preset-env": "1.6.0",
+    "babel-preset-es2015": "^6.24.1",
+    "babel-register": "^6.26.0",
+    "chai": "^4.1.2",
+    "cross-env": "^5.0.5",
+    "mocha": "^3.5.3",
+    "nyc": "^11.2.1"
+  },
+  "dependencies": {
+    "async": "2.5.0",
+    "json-stringify-safe": "^5.0.1",
+    "underscore": "^1.8.3"
+  },
+  "nyc": {
+    "require": [
+      "babel-register"
+    ],
+    "reporter": [
+      "lcov",
+      "text"
+    ],
+    "sourceMap": false,
+    "instrument": false
+  }
+}
