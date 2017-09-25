@@ -1,4 +1,4 @@
-import ProcessDispatcher from '../../src/index';
+import {ModuleProcess} from '../../src/index';
 
 import {makeMuteLogger} from './utils';
 
@@ -22,7 +22,7 @@ function insertionSort(params) {
 /**
  * Expose end-point to module desired parts via sub-processing
  */
-ProcessDispatcher.listenIPCMessages(function () {
+ModuleProcess.listenIPCMessages(function () {
 
   /** {@link moduleOpts} Might be used later */
 

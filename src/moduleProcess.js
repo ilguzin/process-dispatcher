@@ -1,30 +1,51 @@
+/**
+ * @file {@link ModuleProcess} represents a wrapper enabling interprocess communication functionality for
+ * arbitrary module which engages it to be available as a sub-process invocation. {@link ModuleProcess} is a core part
+ * of sub-processing dispatching.
+ * @author Denis Ilguzin
+ */
 
-import * as childProcess from "child_process";
-import * as _ from "underscore";
+import childProcess from "child_process";
+import _ from "underscore";
 
 import stringify from 'json-stringify-safe';
 
-import {COMMANDS} from "./const";
+import COMMANDS from "./commands";
 import {logger as defaultLogger} from "./utils";
 
 /**
- * ModuleProcess
+ * <p>ModuleProcess</p>
  *
- * A wrapper for module to make it running its functionality within subprocess accepting IPC messages
- * as commands.
+ * <p>A wrapper for module to make it running its functionality within subprocess accepting IPC messages
+ * as commands.</p>
  *
- * The main purpose of the {@link ModuleProcess} is to invoke within subprocess any module function by name
+ * <p>The main purpose of the {@link ModuleProcess} is to invoke within subprocess any module function by name
  * (available via module.exports of wrapped module) passing parameters to it (see {@link ModuleProcess.invoke}
  * for details). The function name to call and parameters are accepted via IPC, the callback invoked then on IPC
- * chanel in form of message back to parent.
+ * chanel in form of message back to parent.</p>
  *
- * @param moduleName {String}   Module name (script file name). E.g. __filename global let
+ * @param moduleName {String}   Module name (script file name). E.g. __filename
  * @param moduleOpts {Object}   Options object to pass to the module
- * @constructor
+ * @class
  */
 export class ModuleProcess {
 
-  constructor (moduleName, moduleOpts, logger = defaultLogger) {
+  /**
+   * <p>Callback to run on function finished. <i>Note: It might contain arbitrary number of arguments (required at
+   * least one - error)</i></p>
+   *
+   * @callback ModuleProcess~onReadyCallback
+   * @param error {Error}   An Error object if the callback has raised an error.
+   */
+
+  /**
+   * Construct
+   *
+   * @param moduleName
+   * @param moduleOpts
+   * @param logger
+   */
+  constructor(moduleName, moduleOpts, logger = defaultLogger) {
     this._initialized = false;
 
     this.moduleName = moduleName;
@@ -36,64 +57,156 @@ export class ModuleProcess {
   }
 
   /**
-   * Make unique command token to use in send/receive model to distinguish calls for the child process.
+   * <p>Create listener to catch the IPC messages within the process the module is running in.</p>
    *
-   * @param command       See {@link COMMANDS} definition for possible commands.
-   * @returns {string}
+   * <p><i>Important: The module should be running within process otherwise registering listener makes no sense.
+   * This will invoke process.on('message', function() {}) to listen for parent process commands.</i></p>
+   *
+   * <p>Use {@link ProcessDispatcher} to manage module processes.</p>
+   *
+   * @param moduleFn {Function}     Module function exposing the API for {@link ProcessDispatcher.dispatch} calls.
+   * @param moduleFileName {String} File name (whole patch with file name) of the module defined by module function.
+   * @param logger
    */
-  static makeCommandId (command) {
+  static listenIPCMessages(moduleFn, moduleFileName, logger = defaultLogger) {
+
+    /**
+     * Only enable listener within sub-process. See {@link ModuleProcess.init} for process.env.PROC_NAME initialization.
+     */
+    if (process.env.PROC_NAME === moduleFileName) {
+
+      logger.debug("Mimic module as process " + process.env.PROC_NAME);
+
+      let module;
+
+      /**
+       * Listen to IPC messages, convert them to module functionality calls (adding callback), run this calls within
+       * current process and once response has come invoke callback to send (on the same IPC chanel) a response to
+       * parent process.
+       */
+      process.on('message', (message) => {
+
+        logger.debug("Module '" + process.env.PROC_NAME + "' has gotten message: command: " + message.command + '; ' + (message.commandId ? "commandId: " + message.commandId + '; ' : '') + (message.functionName ? "functionName: " + message.functionName + '; ' : ''));
+
+        switch (message.command) {
+          // TODO : comment
+          case COMMANDS.MODULE_PROCESS_COMMAND_INIT:
+            let moduleOpts = message.moduleOpts;
+
+            module = moduleFn(moduleOpts);
+
+            if (module.init) {
+              module.init(function () {
+                process.send({command: message.command, callbackArguments: arguments});
+              });
+            } else {
+              process.send({command: message.command});
+            }
+
+            break;
+
+          // TODO : comment
+          case COMMANDS.MODULE_PROCESS_COMMAND_INVOKE:
+            let functionName = message.functionName;
+            let params = message.params;
+
+            let callback = function () {
+              process.send({
+                sendTime: message.sendTime,
+                command: message.command,
+                commandId: message.commandId,
+                functionName: message.functionName,
+                callbackArguments: arguments
+              });
+            };
+
+            if (module && module[functionName]) {
+              module[functionName].call(this, params)(callback);
+            } else if (!module) {
+              callback(new Error("Module '" + process.env.PROC_NAME + "' is not initialized"));
+            } else {
+              callback(new Error("'" + message.functionName + "' function does not exist in '" + process.env.PROC_NAME + "' module"));
+            }
+
+            break;
+        }
+
+      });
+
+      /**
+       * Listen to IPC chanel close-events and exit subprocess once chanel has been closed.
+       * See https://nodejs.org/api/process.html#process_event_disconnect.
+       *
+       * Note: this is very important since the main process might have died making the module processes orphans forever.
+       * The subprocess module should take care on stopping it-self in such scenarios.
+       */
+      process.on('disconnect', function () {
+        process.exit();
+      });
+    }
+
+  }
+
+  /**
+   * <p>Make unique command token to use in send/receive model to distinguish calls for the child process.</p>
+   *
+   * @param command {COMMANDS}  A {@link COMMANDS} definition for possible commands.
+   * @returns {string}          Token
+   */
+  static makeCommandId(command) {
     return command + "-" + (new Date().getTime()).toString() + "-" + process.hrtime()[1];
   }
 
   /**
-   * Bind callback to unique command id (or token) to be called once function finished.
+   * <p>Bind callback to unique command id (or token) to be called once function finished.</p>
    *
-   * @param commandId {String}  Unique string token. See. {@link ModuleProcess.makeCommandId}
-   * @param callback {Function} Callback to run on function finished.
+   * @param commandId {String}                        Unique string Token. See. {@link ModuleProcess.makeCommandId}
+   * @param callback {ModuleProcess~onReadyCallback} Callback to run on function finished.
    */
-  addCallback (commandId, callback) {
+  addCallback(commandId, callback) {
     this.invokeCallbacks[commandId] = callback;
   };
 
   /**
-   * Unbind callback from token. See. {@link ModuleProcess.addCallback}.
+   * <p>Unbind callback from Token. See. {@link ModuleProcess.addCallback}.</p>
    *
    * @param commandId {String}  Unique string token. See. {@link ModuleProcess.makeCommandId}
    */
-  removeCallback (commandId) {
+  removeCallback(commandId) {
     delete this.invokeCallbacks[commandId];
   };
 
   /**
-   * Get callback by token. See. {@link ModuleProcess.addCallback}, {@link ModuleProcess.makeCommandId}.
+   * <p>Get callback by token. See. {@link ModuleProcess.addCallback}, {@link ModuleProcess.makeCommandId}.</p>
    *
-   * @param commandId {String}  Unique string token. See. {@link ModuleProcess.makeCommandId}
-   * @return {Function}         Callback function that has been stored for this commandId.
+   * @param commandId {String}  Unique string token. See. {@link ModuleProcess.makeCommandId}.
+   * @return callback {ModuleProcess~onInvokeCallback}  Callback function that has been stored for this commandId.
    */
-  getCallback (commandId) {
+  getCallback(commandId) {
     return this.invokeCallbacks[commandId];
   };
 
   /**
-   * Initialize child process and incoming commands listener.
+   * <p>Initialize child process and incoming commands listener.</p>
    *
-   * This will do the following steps:
+   * <p>This will do the following steps:
    *
-   *  - Prepare options to be passed for module (functionality options) and process (environment mostly) initialization
+   * <ul>
+   *   <li>- Prepare options to be passed for module (functionality options) and process (environment mostly) initialization</li>
+   *   <li>- Fork new subprocess from {@link moduleName}</li>
+   *   <li>- Start listening incoming IPC messages from forked sub-process to current process:
+   *     <ul>
+   *       <li>- <i>init command response</i>: will invoke the {@link ModuleProcess.init} function callback, notifying
+   *       the module has been initialized in subprocess</li>
+   *       <li>- <i>other command response</i>: will invoke a callback registered with {@link addCallback} on incoming
+   *       command call via {@link ModuleProcess.invoke}.</li>
+   *     </ul>
+   *   </li>
+   * </ul>
    *
-   *  - Fork new subprocess from {@link moduleName}
-   *
-   *  - Start listening incoming IPC messages from forked sub-process to current process:
-   *
-   *    - _init command response_: will invoke the {@link ModuleProcess.init} function callback, notifying the module
-   *    has been initialized in subprocess
-   *
-   *    - _other command response_: will invoke a callback registered with {@link addCallback} on incoming
-   *    command call via {@link ModuleProcess.invoke}.
-   *
-   * @param callback
+   * @param callback {ModuleProcess~onReadyCallback} Callback to run on initialization has finished.
    */
-  init (callback) {
+  init(callback) {
 
     this.logger.debug("Init module process on " + this.moduleName);
 
@@ -177,43 +290,40 @@ export class ModuleProcess {
   };
 
   /**
-   * Request a functionName to be called within subprocess with supplied parameters.
-   * This call return a callback-style function wrapping the invoked function. I.e.
+   * <p>Request a functionName to be called within subprocess with supplied parameters.
+   * This call return a callback-style function wrapping the invoked function. See invokeExample.js below.</p>
    *
-   * @example
-   *   let modProc = ...; // modProc is instance of ModuleProcess
+   * <p>Behind the scenes...</p>
    *
-   *   modProc.invoke('foo', {param1: "test"})(function(error, result) {
-   *     console.log("result is ", result);
-   *   });
+   * <p>The function invocation workflow is based on the following:</p>
    *
-   *
-   * Behind the scenes...
-   *
-   * The function invocation workflow is based on the following:
-   *
-   *  - On {@link ModuleProcess} init the module is wrapped by subprocess. Since that the {@link ModuleProcess} object
+   * <p>1. On {@link ModuleProcess} init the module is wrapped by subprocess. Since that the {@link ModuleProcess} object
    *  API contains module members that are exposed via {@link ProcessDispatcher.listenIPCMessages}.
    *  First parameter in {@link ProcessDispatcher.listenIPCMessages} is 'moduleFn' (function(moduleOpts) { ... }).
    *  {@link moduleOpts} is used eventually as 'moduleOpts' parameter for that function.
    *  Then the functionName passed to the {@link ModuleProcess.invoke} is one of that functions installed via
-   *  {@link ProcessDispatcher.listenIPCMessages} invocation.
+   *  {@link ProcessDispatcher.listenIPCMessages} invocation.</p>
    *
-   *  - Once functionName invocation requested the callback is registered for that particular function call (i.e.
-   *  unique token created for the function call)
+   *  <p>2. Once functionName invocation requested the callback is registered for that particular function call (i.e.
+   *  unique token created for the function call)</p>
    *
-   *  - Later under the hood the callback will be called when the subprocess that wraps the module will respond via
+   *  <p>3. Later under the hood the callback will be called when the subprocess that wraps the module will respond via
    *  IPC message to its parent process. The response will be caught by {@link ModuleProcess} functionality.
    *  To understand that see how initialization goes in {@link ModuleProcess.init}, the
    *  "case COMMANDS.MODULE_PROCESS_COMMAND_INVOKE" block is what catching command result responses and calling callback
-   *  that is registered when {@link ModuleProcess.invoke} has been called.
+   *  that is registered when {@link ModuleProcess.invoke} has been called.</p>
    *
+   * @example <caption>invokeExample.js</caption>
+   * let modProc = ...; // modProc is instance of ModuleProcess
+   * modProc.invoke('foo', {param1: "test"})(function(error, result) {
+   *   console.log("result is ", result);
+   * });
    *
-   * @param functionName  Function name to be invoked. It is a wrapped module module.export member.
-   * @param params        Params to be passed to function.
-   * @returns {Function}  Return a native callback-style node function. I.e. function(error, result) { ... }
+   * @param functionName {string}   Function name to be invoked. It is a wrapped module module.export member.
+   * @param params {object}         Params to be passed to function.
+   * @returns {ModuleProcess~onReadyCallback}  A callback function to be run on command invocation has finished.
    */
-  invoke (functionName, params) {
+  invoke(functionName, params) {
     // TODO : check if this.childProcess is not null
 
     let commandId = ModuleProcess.makeCommandId(COMMANDS.MODULE_PROCESS_COMMAND_INVOKE);
@@ -236,10 +346,6 @@ export class ModuleProcess {
 
     };
   };
+
 }
-
-
-
-
-
 

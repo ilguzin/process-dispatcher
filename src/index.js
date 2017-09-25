@@ -1,5 +1,6 @@
 
 import {ProcessDispatcher} from './processDispatcher';
+import {ModuleProcess} from './moduleProcess';
 
-export default ProcessDispatcher;
+export {ProcessDispatcher, ModuleProcess};
 

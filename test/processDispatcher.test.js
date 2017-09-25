@@ -1,6 +1,6 @@
 import 'chai/register-should';
 
-import ProcessDispatcher from '../src/index';
+import {ProcessDispatcher} from '../src/index';
 import {makeMuteLogger} from './helpers/utils';
 
 describe("Test ProcessDispatcher class functionality", () => {

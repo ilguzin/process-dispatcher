@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node_modules/babel-cli/bin/babel.js src --out-dir lib",
     "test": "node_modules/cross-env/dist/bin/cross-env.js NODE_ENV=test nyc mocha -R spec test/*.test.js",
-    "prepublish": "npm run build"
+    "prepublish": "npm run build",
+    "jsdoc": "node_modules/jsdoc/jsdoc.js src/"
   },
   "repository": {
     "type": "git",
@@ -30,6 +31,7 @@
     "babel-register": "^6.26.0",
     "chai": "^4.1.2",
     "cross-env": "^5.0.5",
+    "jsdoc": "^3.5.5",
     "mocha": "^3.5.3",
     "nyc": "^11.2.1"
   },
