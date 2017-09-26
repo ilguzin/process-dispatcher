@@ -1,6 +1,6 @@
 {
   "name": "process-dispatcher",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "JavaScript process dispatcher backed by NodeJS Child Processes functionality. Intended to wrap any native NodeJS module to make it executable in subprocess. Interprocess messaging works via IPC",
   "main": "lib/index.js",
   "scripts": {
