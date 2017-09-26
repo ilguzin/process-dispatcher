@@ -5,3 +5,4 @@ coverage/
 .idea
 .nyc_output
 *.log
+.coveralls.yml
