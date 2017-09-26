@@ -3,7 +3,8 @@ import 'chai/register-should';
 import {ProcessDispatcher} from '../src/index';
 import {makeMuteLogger} from './helpers/utils';
 
-describe("Test ProcessDispatcher class functionality", () => {
+describe("Test ProcessDispatcher class functionality", function () {
+  this.timeout(5000); // Defined custom suite-level timeout
 
   it("should create and run ProcessDispatcher", (done) => {
 
