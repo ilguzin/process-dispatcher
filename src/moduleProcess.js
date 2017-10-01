@@ -6,7 +6,6 @@
  */
 
 import childProcess from "child_process";
-import _ from "underscore";
 
 import stringify from 'json-stringify-safe';
 
@@ -221,12 +220,12 @@ export class ModuleProcess {
      * Prepare the options object to be used for forking child process.
      * See. https://nodejs.org/api/child_process.html#child_process_child_process_fork_modulepath_args_options
      */
-    let processOpts = _.extend({}, this.moduleOpts.process);
+    let processOpts = Object.assign({}, this.moduleOpts.process);
 
     /**
      * Extend and inherit from current process (main process) environment in sub-process
      */
-    processOpts.env = _.extend(
+    processOpts.env = Object.assign(
       {},                             // To create new env object instead mutating current
       process.env,                    // Inherit from current process env object
       processOpts.env,                // Inherit from config modulesprocdisp.XXX.process.env if any
@@ -260,7 +259,8 @@ export class ModuleProcess {
         (timeElapsed ? "; time: +" + timeElapsed + "ms" : '')
       );
 
-      let args = cpResponseMessage.callbackArguments ? _.values(cpResponseMessage.callbackArguments) : [];
+      let args = cpResponseMessage.callbackArguments ?
+        Object.keys(cpResponseMessage.callbackArguments).map(function(key) { return cpResponseMessage.callbackArguments[key]; }) : [];
 
       switch (cpResponseMessage.command) {
         case COMMANDS.MODULE_PROCESS_COMMAND_INIT:
