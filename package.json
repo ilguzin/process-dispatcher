@@ -4,9 +4,9 @@
   "description": "JavaScript process dispatcher backed by NodeJS Child Processes functionality. Intended to wrap any native NodeJS module to make it executable in subprocess. Interprocess messaging works via IPC",
   "main": "src/index.js",
   "scripts": {
-    "test": "mocha -R spec test/*.test.js",
-    "jshint": "jshint src/* test/*",
-    "jsdoc": "jsdoc --destination docs/ src/",
+    "test": "node_modules/mocha/bin/mocha -R spec test/*.test.js",
+    "jshint": "node_modules/jshint/bin/jshint src/* test/*",
+    "jsdoc": "node_modules/jsdoc/jsdoc.js --destination docs/ src/",
     "prepublish": "npm run jshint && npm test"
   },
   "repository": {
