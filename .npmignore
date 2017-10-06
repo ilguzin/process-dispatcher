@@ -1,8 +1,4 @@
-src/
 test/
 node_modules/
-coverage/
 .idea
-.nyc_output
 *.log
-.coveralls.yml

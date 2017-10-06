@@ -28,17 +28,7 @@
 
 <header>
     
-        <h2><span class="attribs"><span class="type-signature"></span></span>ModuleProcess<span class="signature">(moduleName, moduleOpts)</span><span class="type-signature"></span></h2>
-        
-            <div class="class-description"><p>ModuleProcess</p>
-
-<p>A wrapper for module to make it running its functionality within subprocess accepting IPC messages
-as commands.</p>
-
-<p>The main purpose of the <a href="ModuleProcess.html">ModuleProcess</a> is to invoke within subprocess any module function by name
-(available via module.exports of wrapped module) passing parameters to it (see ModuleProcess.invoke
-for details). The function name to call and parameters are accepted via IPC, the callback invoked then on IPC
-chanel in form of message back to parent.</p></div>
+        <h2>ModuleProcess</h2>
         
     
 </header>
@@ -49,19 +39,23 @@ chanel in form of message back to parent.</p></div>
         
 
     
-    <h2>Constructor</h2>
-    
 
-    
-    <h4 class="name" id="ModuleProcess"><span class="type-signature"></span>new ModuleProcess<span class="signature">(moduleName, moduleOpts)</span><span class="type-signature"></span></h4>
-    
+    <h4 class="name" id="ModuleProcess"><span class="type-signature"></span>new ModuleProcess<span class="signature">(moduleName, moduleOpts, logger)</span><span class="type-signature"></span></h4>
 
     
 
 
 
 <div class="description">
-    Construct
+    <p>ModuleProcess</p>
+
+<p>A wrapper for module to make it running its functionality within subprocess accepting IPC messages
+as commands.</p>
+
+<p>The main purpose of the <a href="ModuleProcess.html">ModuleProcess</a> is to invoke within subprocess any module function by name
+(available via module.exports of wrapped module) passing parameters to it (see ModuleProcess.invoke
+for details). The function name to call and parameters are accepted via IPC, the callback invoked then on IPC
+chanel in form of message back to parent.</p>
 </div>
 
 
@@ -140,6 +134,24 @@ chanel in form of message back to parent.</p></div>
         </tr>
 
     
+
+        <tr>
+            
+                <td class="name"><code>logger</code></td>
+            
+
+            <td class="type">
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
     </tbody>
 </table>
 
@@ -177,7 +189,7 @@ chanel in form of message back to parent.</p></div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line31">line 31</a>
+        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line40">line 40</a>
     </li></ul></dd>
     
 
@@ -203,8 +215,6 @@ chanel in form of message back to parent.</p></div>
 
 
 
-
-
     
     </div>
 
@@ -214,9 +224,7 @@ chanel in form of message back to parent.</p></div>
 
     
 
-    
-
-    
+     
 
     
 
@@ -230,9 +238,7 @@ chanel in form of message back to parent.</p></div>
 
     
 
-    
     <h4 class="name" id=".listenIPCMessages"><span class="type-signature">(static) </span>listenIPCMessages<span class="signature">(moduleFn, moduleFileName, logger)</span><span class="type-signature"></span></h4>
-    
 
     
 
@@ -378,7 +384,7 @@ This will invoke process.on('message', function() {}) to listen for parent proce
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line71">line 71</a>
+        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line66">line 66</a>
     </li></ul></dd>
     
 
@@ -404,16 +410,12 @@ This will invoke process.on('message', function() {}) to listen for parent proce
 
 
 
-
-
         
             
 
     
 
-    
     <h4 class="name" id=".makeCommandId"><span class="type-signature">(static) </span>makeCommandId<span class="signature">(command)</span><span class="type-signature"> &rarr; {string}</span></h4>
-    
 
     
 
@@ -513,7 +515,7 @@ This will invoke process.on('message', function() {}) to listen for parent proce
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line156">line 156</a>
+        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line153">line 153</a>
     </li></ul></dd>
     
 
@@ -561,16 +563,12 @@ This will invoke process.on('message', function() {}) to listen for parent proce
 
 
 
-
-
         
             
 
     
 
-    
     <h4 class="name" id="addCallback"><span class="type-signature"></span>addCallback<span class="signature">(commandId, callback)</span><span class="type-signature"></span></h4>
-    
 
     
 
@@ -693,7 +691,7 @@ This will invoke process.on('message', function() {}) to listen for parent proce
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line166">line 166</a>
+        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line163">line 163</a>
     </li></ul></dd>
     
 
@@ -719,16 +717,12 @@ This will invoke process.on('message', function() {}) to listen for parent proce
 
 
 
-
-
         
             
 
     
 
-    
     <h4 class="name" id="getCallback"><span class="type-signature"></span>getCallback<span class="signature">(commandId)</span><span class="type-signature"> &rarr; {ModuleProcess~onInvokeCallback}</span></h4>
-    
 
     
 
@@ -828,7 +822,7 @@ This will invoke process.on('message', function() {}) to listen for parent proce
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line185">line 185</a>
+        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line182">line 182</a>
     </li></ul></dd>
     
 
@@ -876,16 +870,12 @@ This will invoke process.on('message', function() {}) to listen for parent proce
 
 
 
-
-
         
             
 
     
 
-    
     <h4 class="name" id="init"><span class="type-signature"></span>init<span class="signature">(callback)</span><span class="type-signature"></span></h4>
-    
 
     
 
@@ -1000,7 +990,7 @@ This will invoke process.on('message', function() {}) to listen for parent proce
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line209">line 209</a>
+        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line206">line 206</a>
     </li></ul></dd>
     
 
@@ -1026,16 +1016,12 @@ This will invoke process.on('message', function() {}) to listen for parent proce
 
 
 
-
-
         
             
 
     
 
-    
     <h4 class="name" id="invoke"><span class="type-signature"></span>invoke<span class="signature">(functionName, params)</span><span class="type-signature"> &rarr; {<a href="ModuleProcess.html#~onReadyCallback">ModuleProcess~onReadyCallback</a>}</span></h4>
-    
 
     
 
@@ -1179,7 +1165,7 @@ This call return a callback-style function wrapping the invoked function. See in
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line326">line 326</a>
+        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line323">line 323</a>
     </li></ul></dd>
     
 
@@ -1226,13 +1212,11 @@ This call return a callback-style function wrapping the invoked function. See in
     
 
 
-
-
     <h5>Example</h5>
     
         <p class="code-caption">invokeExample.js</p>
     
-    <pre class="prettyprint"><code>let modProc = ...; // modProc is instance of ModuleProcess
+    <pre class="prettyprint"><code>var modProc = ...; // modProc is instance of ModuleProcess
 modProc.invoke('foo', {param1: "test"})(function(error, result) {
   console.log("result is ", result);
 });</code></pre>
@@ -1244,9 +1228,7 @@ modProc.invoke('foo', {param1: "test"})(function(error, result) {
 
     
 
-    
     <h4 class="name" id="removeCallback"><span class="type-signature"></span>removeCallback<span class="signature">(commandId)</span><span class="type-signature"></span></h4>
-    
 
     
 
@@ -1346,7 +1328,7 @@ modProc.invoke('foo', {param1: "test"})(function(error, result) {
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line175">line 175</a>
+        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line172">line 172</a>
     </li></ul></dd>
     
 
@@ -1356,8 +1338,6 @@ modProc.invoke('foo', {param1: "test"})(function(error, result) {
 
     
 </dl>
-
-
 
 
 
@@ -1385,9 +1365,7 @@ modProc.invoke('foo', {param1: "test"})(function(error, result) {
 
     
 
-    
     <h4 class="name" id="~onReadyCallback"><span class="type-signature"></span>onReadyCallback<span class="signature">(error)</span><span class="type-signature"></span></h4>
-    
 
     
 
@@ -1488,7 +1466,7 @@ least one - error)</i></p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line33">line 33</a>
+        <a href="moduleProcess.js.html">moduleProcess.js</a>, <a href="moduleProcess.js.html#line16">line 16</a>
     </li></ul></dd>
     
 
@@ -1498,8 +1476,6 @@ least one - error)</i></p>
 
     
 </dl>
-
-
 
 
 
@@ -1536,7 +1512,7 @@ least one - error)</i></p>
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Tue Sep 26 2017 09:14:36 GMT+0300 (MSK)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Fri Oct 06 2017 12:25:57 GMT+0300 (MSK)
 </footer>
 
 <script> prettyPrint(); </script>

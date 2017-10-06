@@ -6,7 +6,7 @@
 /**
  * @constant {object}  Set of commands to be used for IPC backed messages.
  */
-export default {
+module.exports = {
   /** @constant {string}  Initialize module. */
   MODULE_PROCESS_COMMAND_INIT: 'init',
   /** @constant {string}  Invoke and arbitrary command/function. */

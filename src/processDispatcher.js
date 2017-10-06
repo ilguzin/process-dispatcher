@@ -4,10 +4,18 @@
  * @author Denis Ilguzin
  */
 
-import * as async from "async";
+var async = require("async");
 
-import {logger as defaultLogger, range} from "./utils";
-import {ModuleProcess} from "./moduleProcess"
+var utils = require("./utils"), defaultLogger = utils.logger, range = utils.range;
+var ModuleProcess = require ("./moduleProcess");
+
+/**
+ * <p>Callback to run on function finished. <i>Note: It might contain arbitrary number of arguments (required at
+ * least one - error)</i></p>
+ *
+ * @callback ProcessDispatcher~onReadyCallback
+ * @param error {Error}   An Error object if the callback has raised an error.
+ */
 
 /**
  * <p><i><strong>Note: before running dispatching workflow do not forget to init listener on the module.</strong>
@@ -19,133 +27,120 @@ import {ModuleProcess} from "./moduleProcess"
  * @param logger {Object}
  * @class
  */
-export class ProcessDispatcher {
+function ProcessDispatcher (moduleName, moduleOpts, logger) {
 
-  /**
-   * <p>Callback to run on function finished. <i>Note: It might contain arbitrary number of arguments (required at
-   * least one - error)</i></p>
-   *
-   * @callback ProcessDispatcher~onReadyCallback
-   * @param error {Error}   An Error object if the callback has raised an error.
-   */
+  if (logger === undefined) { logger = defaultLogger; }
 
-  /**
-   *
-   * @param moduleName
-   * @param moduleOpts
-   * @param logger
-   */
-  constructor (moduleName, moduleOpts, logger = defaultLogger) {
-    this.moduleName = moduleName;
-    this.moduleOpts = moduleOpts;
-    this.availableProcesses = [];
-    this.logger = logger;
-  }
+  this.moduleName = moduleName;
+  this.moduleOpts = moduleOpts;
+  this.availableProcesses = [];
+  this.logger = logger;
+}
 
-  /**
-   * <p>Create a module sub-process and configure its listener to accepts messages.</p>
-   *
-   * @param moduleName
-   * @param moduleOpts
-   * @param logger
-   * @returns {ProcessDispatcher~onReadyCallback}
-   */
-  static makeModuleProcess (moduleName, moduleOpts, logger) {
-    return (callback) => new ModuleProcess(moduleName, moduleOpts, logger).init(callback);
+/**
+ * <p>Create a module sub-process and configure its listener to accepts messages.</p>
+ *
+ * @param moduleName
+ * @param moduleOpts
+ * @param logger
+ * @returns {ProcessDispatcher~onReadyCallback}
+ */
+ProcessDispatcher.makeModuleProcess = function (moduleName, moduleOpts, logger) {
+  return function (callback) { new ModuleProcess(moduleName, moduleOpts, logger).init(callback); };
+};
+
+/**
+ * <p>Dispatch function invocation to existing moduleProcess.</p>
+ *
+ * @param moduleName {string}     A js filename containing module function (!) (e.g. module.exports = function() { }).
+ *                                I.e. module that is defined by function.
+ * @param moduleOpts {Object}     Will be passed to module-function to create a module instance.
+ * @param logger
+ * @param functionName {string}   Function to be invoked (should be defined on the module).
+ * @param params {Object}         Parameters mapping.
+ * @returns {ProcessDispatcher~onReadyCallback} On execution finished.
+ */
+ProcessDispatcher.dispatchToModule = function(moduleName, moduleOpts, logger, functionName, params) {
+  return function (callback) {
+    async.waterfall([
+      function (callback) {
+        ProcessDispatcher.makeModuleProcess(moduleName, moduleOpts, logger)(callback);
+      },
+      function (moduleProcess, callback) {
+        ProcessDispatcher.dispatchToModuleProcess(moduleProcess, functionName, params)(callback);
+      }
+    ], callback);
   };
+};
 
-  /**
-   * <p>Dispatch function invocation to existing moduleProcess.</p>
-   *
-   * @param moduleName {string}     A js filename containing module function (!) (e.g. module.exports = function() { }).
-   *                                I.e. module that is defined by function.
-   * @param moduleOpts {Object}     Will be passed to module-function to create a module instance.
-   * @param logger
-   * @param functionName {string}   Function to be invoked (should be defined on the module).
-   * @param params {Object}         Parameters mapping.
-   * @returns {ProcessDispatcher~onReadyCallback} On execution finished.
-   */
-  static dispatchToModule (moduleName, moduleOpts, logger, functionName, params) {
-    return (callback) => {
-      async.waterfall([
-        (callback) => {
-          ProcessDispatcher.makeModuleProcess(moduleName, moduleOpts, logger)(callback);
-        },
-        (moduleProcess, callback) => {
-          ProcessDispatcher.dispatchToModuleProcess(moduleProcess, functionName, params)(callback);
+/**
+ * <p>Dispatch function invocation to existing moduleProcess.</p>
+ *
+ * @param moduleProcess
+ * @param functionName {string}   Function defined on the module.
+ * @param params {Object}         Parameters mapping.
+ * @returns {ProcessDispatcher~onReadyCallback} On execution finished.
+ */
+ProcessDispatcher.dispatchToModuleProcess = function (moduleProcess, functionName, params) {
+  return function (callback) { moduleProcess.invoke(functionName, params)(callback); };
+};
+
+/**
+ * <p>Create listener to catch the IPC messages within the process the module is running in.</p>
+ *
+ * @deprecated  This is no longer a part of {@link ProcessDispatcher}. Migrated to
+ * {@link ModuleProcess.listenIPCMessages}.
+ */
+ProcessDispatcher.listenIPCMessages = function (moduleFn, moduleFileName, logger) {
+  ModuleProcess.listenIPCMessages(moduleFn, moduleFileName, logger);
+};
+
+/**
+ * <p>Creates round robin ids for preforked subprocesses. See how {@link ProcessDispatcher.dispatch} works.</p>
+ */
+ProcessDispatcher.prototype.updateRRId = function () {
+  this._rrIds = range(this.availableProcesses.length);
+};
+
+/**
+ * <p>Implementation of FIFO queue for selecting of pre-forked subprocess ids.</p>
+ * <p>See how {@link ProcessDispatcher.dispatch} works in this regard.</p>
+ *
+ * @returns {Number} Number of sub-process ID.
+ */
+ProcessDispatcher.prototype.getNextProcId = function () {
+  var nextId = this._rrIds.shift();
+  this._rrIds.push(nextId);
+  return nextId;
+};
+
+/**
+ * <p>Pre-fork subprocess and update a list of available sub-process ids.</p>
+ *
+ * @param num
+ * @returns {ProcessDispatcher~onReadyCallback} On execution finished.
+ */
+ProcessDispatcher.prototype.preFork = function (num) {
+  var _this = this;
+  _this.logger.debug("preFork " + num);
+  return function (callback) {
+    async.series(
+      range(num).map( function () {
+        return function (callback) { ProcessDispatcher.makeModuleProcess(_this.moduleName, _this.moduleOpts, _this.logger)(callback); };
+      } ),
+      function (error, moduleProcesses) {
+        _this.logger.debug("preFork created " + moduleProcesses.length);
+        if (!error && moduleProcesses) {
+          _this.availableProcesses = moduleProcesses;
+          _this.updateRRId();
+          callback();
+        } else {
+          callback(error);
         }
-      ], callback);
-    };
+      }
+    );
   };
-
-  /**
-   * <p>Dispatch function invocation to existing moduleProcess.</p>
-   *
-   * @param moduleProcess
-   * @param functionName {string}   Function defined on the module.
-   * @param params {Object}         Parameters mapping.
-   * @returns {ProcessDispatcher~onReadyCallback} On execution finished.
-   */
-  static dispatchToModuleProcess (moduleProcess, functionName, params) {
-    return (callback) => moduleProcess.invoke(functionName, params)(callback);
-  };
-
-  /**
-   * <p>Create listener to catch the IPC messages within the process the module is running in.</p>
-   *
-   * @deprecated  This is no longer a part of {@link ProcessDispatcher}. Migrated to
-   * {@link ModuleProcess.listenIPCMessages}.
-   */
-  static listenIPCMessages (moduleFn, moduleFileName, logger) {
-    ModuleProcess.listenIPCMessages(moduleFn, moduleFileName, logger);
-  };
-
-  /**
-   * <p>Creates round robin ids for preforked subprocesses. See how {@link ProcessDispatcher.dispatch} works.</p>
-   */
-  updateRRId () {
-    this._rrIds = range(this.availableProcesses.length);
-  };
-
-  /**
-   * <p>Implementation of FIFO queue for selecting of pre-forked subprocess ids.</p>
-   * <p>See how {@link ProcessDispatcher.dispatch} works in this regard.</p>
-   *
-   * @returns {Number} Number of sub-process ID.
-   */
-  getNextProcId () {
-    let nextId = this._rrIds.shift();
-    this._rrIds.push(nextId);
-    return nextId;
-  };
-
-  /**
-   * <p>Pre-fork subprocess and update a list of available sub-process ids.</p>
-   *
-   * @param num
-   * @returns {ProcessDispatcher~onReadyCallback} On execution finished.
-   */
-  preFork (num) {
-    this.logger.debug("preFork " + num);
-    return (callback) => {
-      async.series(
-        range(num).map( () => {
-          return (callback) => ProcessDispatcher.makeModuleProcess(this.moduleName, this.moduleOpts, this.logger)(callback);
-        } )
-      ,
-        (error, moduleProcesses) => {
-          this.logger.debug("preFork created " + moduleProcesses.length);
-          if (!error && moduleProcesses) {
-            this.availableProcesses = moduleProcesses;
-            this.updateRRId();
-            callback();
-          } else {
-            callback(error);
-          }
-        }
-      );
-    };
-  };
+};
 
   /**
    * <p>Dispatch arbitrary function call to available {@link ModuleProcess} instance.</p>
@@ -157,47 +152,43 @@ export class ProcessDispatcher {
    * @param params        The parameters to be passed to the functionName
    * @returns {ProcessDispatcher~onReadyCallback} On execution finished.
    */
-  dispatch (functionName, params) {
-    //this.logger.debug("ProcessDispatcher.dispatch t: ", process.hrtime()[1]);
+ProcessDispatcher.prototype.dispatch = function (functionName, params) {
+  //this.logger.debug("ProcessDispatcher.dispatch t: ", process.hrtime()[1]);
 
-    let moduleProcess;
+  var _this = this;
 
-    let availableProcessNum = this.availableProcesses.length;
+  var moduleProcess;
 
-    if (availableProcessNum) {
-      let processNumber = this.getNextProcId();
+  var availableProcessNum = this.availableProcesses.length;
 
-      this.logger.debug("Dispatching '" + functionName + "' to process number " + processNumber + ". Available processes number " + availableProcessNum);
+  if (availableProcessNum) {
+    var processNumber = _this.getNextProcId();
 
-      moduleProcess = this.availableProcesses[processNumber];
-    }
+    _this.logger.debug("Dispatching '" + functionName + "' to process number " + processNumber + ". Available processes number " + availableProcessNum);
 
-    return (callback) => {
-      async.waterfall([
-        (callback) => {
-          // Make a descicion on create new process or use existing one.
-          if (moduleProcess) {
-            this.logger.debug("Make use of existing process for '" + this.moduleName + "' invocation of '" + functionName + "'");
-            callback(null, moduleProcess);
-          } else {
-            // let errorMessage = "No '" + this.moduleName + "' processes available yet for invocation of '" + functionName + "'";
-            // this.logger.debug(errorMessage);
-            // callback(new Error(errorMessage));
-            this.logger.debug("Creating new process for '" + this.moduleName + "' invocation of '" + functionName + "'");
-            ProcessDispatcher.makeModuleProcess(this.moduleName, this.moduleOpts, this.logger)(callback);
-          }
-        },
-        (moduleProcess, callback) => {
-          ProcessDispatcher.dispatchToModuleProcess(moduleProcess, functionName, params)(callback);
+    moduleProcess = _this.availableProcesses[processNumber];
+  }
+
+  return function (callback) {
+    async.waterfall([
+      function (callback) {
+        // Make a descicion on create new process or use existing one.
+        if (moduleProcess) {
+          _this.logger.debug("Make use of existing process for '" + _this.moduleName + "' invocation of '" + functionName + "'");
+          callback(null, moduleProcess);
+        } else {
+          // var errorMessage = "No '" + _this.moduleName + "' processes available yet for invocation of '" + functionName + "'";
+          // _this.logger.debug(errorMessage);
+          // callback(new Error(errorMessage));
+        _this.logger.debug("Creating new process for '" + _this.moduleName + "' invocation of '" + functionName + "'");
+          ProcessDispatcher.makeModuleProcess(_this.moduleName, _this.moduleOpts, _this.logger)(callback);
         }
-      ], callback);
-    };
+      },
+      function (moduleProcess, callback) {
+        ProcessDispatcher.dispatchToModuleProcess(moduleProcess, functionName, params)(callback);
+      }
+    ], callback);
   };
+};
 
-}
-
-
-
-
-
-
+module.exports = ProcessDispatcher;

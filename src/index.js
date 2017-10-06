@@ -1,6 +1,6 @@
 
-import {ProcessDispatcher} from './processDispatcher';
-import {ModuleProcess} from './moduleProcess';
-
-export {ProcessDispatcher, ModuleProcess};
+module.exports = {
+  ProcessDispatcher: require('./processDispatcher'),
+  ModuleProcess: require('./moduleProcess')
+};
 

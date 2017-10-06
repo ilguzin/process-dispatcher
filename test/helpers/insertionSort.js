@@ -1,15 +1,15 @@
-import {ModuleProcess} from '../../src/index';
+var ModuleProcess = require('../../src/index').ModuleProcess;
 
-import {makeMuteLogger} from './utils';
+var makeMuteLogger = require('./utils').makeMuteLogger;
 
 /**
  * This has been taken from https://github.com/benoitvallon/computer-science-in-javascript.git
  */
 function insertionSort(params) {
-  let array = params.array;
-  for(let i = 0; i < array.length; i++) {
-    let temp = array[i];
-    let j = i - 1;
+  var array = params.array;
+  for(var i = 0; i < array.length; i++) {
+    var temp = array[i];
+    var j = i - 1;
     while (j >= 0 && array[j] > temp) {
       array[j + 1] = array[j];
       j--;
@@ -29,14 +29,14 @@ ModuleProcess.listenIPCMessages(function () {
   return {
     insertionSort: function (params) {
 
-      let result = insertionSort(params);
+      var result = insertionSort(params);
 
       return function (callback) {
         callback(null, result);
-      }
+      };
 
     }
-  }
+  };
 
 }, __filename, makeMuteLogger());
 
