@@ -1,7 +1,9 @@
+var _ = require('underscore');
+
 
 function makeLoggingFn(logLevel) {
   return function () {
-    var loggingString = arguments ? arguments.reduceRight(function(arg, memo) { return arg + memo; }, "") : "";
+    var loggingString = _.reduce(arguments, function(arg, memo) { return arg + memo; }, "");
     console.log("[" + (new Date()).toISOString() + " " + logLevel.toUpperCase() + " : " + loggingString);
   };
 }
