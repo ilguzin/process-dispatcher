@@ -9,6 +9,8 @@
 module.exports = {
   /** @constant {string}  Initialize module. */
   MODULE_PROCESS_COMMAND_INIT: 'init',
+  /** @constant {string}  Ask module process to stop. */
+  MODULE_PROCESS_COMMAND_STOP: 'stop',
   /** @constant {string}  Invoke and arbitrary command/function. */
   MODULE_PROCESS_COMMAND_INVOKE: 'invoke'
 };

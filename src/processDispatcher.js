@@ -126,7 +126,7 @@ ProcessDispatcher.prototype.preFork = function (num) {
   return function (callback) {
     async.series(
       range(num).map( function () {
-        return function (callback) { ProcessDispatcher.makeModuleProcess(_this.moduleName, _this.moduleOpts, _this.logger)(callback); };
+        return ProcessDispatcher.makeModuleProcess(_this.moduleName, _this.moduleOpts, _this.logger);
       } ),
       function (error, moduleProcesses) {
         _this.logger.debug("preFork created " + moduleProcesses.length);
@@ -142,18 +142,30 @@ ProcessDispatcher.prototype.preFork = function (num) {
   };
 };
 
-  /**
-   * <p>Dispatch arbitrary function call to available {@link ModuleProcess} instance.</p>
-   * <p>The {@link ModuleProcess} selection algorithm is round robin based. See {@link getNextProcId} in this regard.</p>
-   *
-   * @param functionName  Function name to be called. The desired module wrapped by {@link ModuleProcess} should expose
-   *                      API via {@link ProcessDispatcher.listenIPCMessages}. The functionName should be a part of that
-   *                      API.
-   * @param params        The parameters to be passed to the functionName
-   * @returns {ProcessDispatcher~onReadyCallback} On execution finished.
-   */
-ProcessDispatcher.prototype.dispatch = function (functionName, params) {
+/**
+ * <p>Dispatch arbitrary function call to available {@link ModuleProcess} instance.</p>
+ * <p>The {@link ModuleProcess} selection algorithm is round robin based. See {@link getNextProcId} in this regard.</p>
+ * <p>In case if there are no pre-forked processes available to dispatch the function call to then create one and
+ * add (if opts.termOnComplete is false) to available processes queue.</p>
+ *
+ * @param functionName  Function name to be called. The desired module wrapped by {@link ModuleProcess} should expose
+ *                      API via {@link ProcessDispatcher.listenIPCMessages}. The functionName should be a part of that
+ *                      API.
+ * @param params        The parameters to be passed to the functionName
+ * @param opts          Dispatch options.
+ *                      termOnComplete - note: only applicable when no pre-forked sub-processes available
+ *                      If True then stop {@link ModuleProcess} on dispatching completed otherwise add to internal
+ *                      queue for future invocation speedup. Default: false.
+ * @returns {ProcessDispatcher~onReadyCallback} On execution finished.
+ */
+ProcessDispatcher.prototype.dispatch = function (functionName, params, opts) {
   //this.logger.debug("ProcessDispatcher.dispatch t: ", process.hrtime()[1]);
+
+  if (!opts) {
+    opts = {
+      termOnComplete: false
+    };
+  }
 
   var _this = this;
 
@@ -172,16 +184,26 @@ ProcessDispatcher.prototype.dispatch = function (functionName, params) {
   return function (callback) {
     async.waterfall([
       function (callback) {
-        // Make a descicion on create new process or use existing one.
+        // Make a decision on create new process or use existing one.
         if (moduleProcess) {
           _this.logger.debug("Make use of existing process for '" + _this.moduleName + "' invocation of '" + functionName + "'");
           callback(null, moduleProcess);
         } else {
-          // var errorMessage = "No '" + _this.moduleName + "' processes available yet for invocation of '" + functionName + "'";
-          // _this.logger.debug(errorMessage);
-          // callback(new Error(errorMessage));
-        _this.logger.debug("Creating new process for '" + _this.moduleName + "' invocation of '" + functionName + "'");
-          ProcessDispatcher.makeModuleProcess(_this.moduleName, _this.moduleOpts, _this.logger)(callback);
+          ProcessDispatcher.makeModuleProcess(_this.moduleName, _this.moduleOpts, _this.logger)(/** @param moduleProcess {ModuleProcess} */function (error, moduleProcess) {
+            if (!error) {
+              if (opts.termOnComplete) {
+                moduleProcess.stop(true)(function(error) {
+                  callback(error, moduleProcess);
+                });
+              } else {
+                _this.availableProcesses.push(moduleProcess);
+                _this.updateRRId();
+                callback(null, moduleProcess);
+              }
+            } else {
+              callback(error, moduleProcess);
+            }
+          });
         }
       },
       function (moduleProcess, callback) {
@@ -189,6 +211,27 @@ ProcessDispatcher.prototype.dispatch = function (functionName, params) {
       }
     ], callback);
   };
+};
+
+/**
+ * Stop all {@link ModuleProcess} instances.
+ *
+ * @param force {boolean}   Ignore {@link ModuleProcess} "stop" errors.
+ * @returns {Function}      Invoke callback on completed
+ */
+ProcessDispatcher.prototype.stop = function(force) {
+  var _this = this;
+
+  return function (callback) {
+
+    async.series(_this.availableProcesses.map(function(mp) {
+      return mp.stop(force);
+    }), function(error) {
+      _this.availableProcesses = _this.availableProcesses.filter(function(mp) { return !mp._stopped; });
+      callback(error);
+    });
+  }
+
 };
 
 module.exports = ProcessDispatcher;

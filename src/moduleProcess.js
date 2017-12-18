@@ -22,6 +22,14 @@ var defaultLogger = require("./utils").logger;
  */
 
 /**
+ * <p>Function (defined on wrapped module) to run right after caller has requested
+ * the {@link ModuleProcess} to stop its sub-process but before it has been actually stopped.</p>
+ *
+ * @callback ModuleProcess~beforeModuleProcessStop
+ * @param error {Error}   An Error object if the callback has raised an error.
+ */
+
+/**
  * <p>ModuleProcess</p>
  *
  * <p>A wrapper for module to make it running its functionality within subprocess accepting IPC messages
@@ -42,6 +50,7 @@ function ModuleProcess (moduleName, moduleOpts, logger) {
   if (logger === undefined) { logger = defaultLogger; }
 
   this._initialized = false;
+  this._stopped = false;
 
   this.moduleName = moduleName;
   this.moduleOpts = moduleOpts;
@@ -85,6 +94,8 @@ ModuleProcess.listenIPCMessages = function(moduleFn, moduleFileName, logger) {
 
       logger.debug("Module '" + process.env.PROC_NAME + "' has gotten message: command: " + message.command + '; ' + (message.commandId ? "commandId: " + message.commandId + '; ' : '') + (message.functionName ? "functionName: " + message.functionName + '; ' : ''));
 
+      var callback;
+
       switch (message.command) {
         // TODO : comment
         case COMMANDS.MODULE_PROCESS_COMMAND_INIT:
@@ -102,12 +113,40 @@ ModuleProcess.listenIPCMessages = function(moduleFn, moduleFileName, logger) {
 
           break;
 
+        case COMMANDS.MODULE_PROCESS_COMMAND_STOP:
+
+          var force = message.params.force;
+
+          callback = function () {
+            process.send({
+              sendTime: message.sendTime,
+              command: message.command,
+              commandId: message.commandId,
+              callbackArguments: arguments
+            });
+            /** Exit if no error raised by {@link ModuleProcess~beforeModuleProcessStop} or force flag set to True */
+            var error = arguments[0];
+            if (!error || force) { setTimeout(function() { process.exit(0); }, 10); }
+          };
+
+          var beforeModuleProcessStopFnName = "beforeModuleProcessStop";
+
+          if (!module) {
+            callback(new Error("Module '" + process.env.PROC_NAME + "' is not initialized"));
+          } else if (module && module[beforeModuleProcessStopFnName]) {
+            module[beforeModuleProcessStopFnName].call(module, params)(callback);
+          } else {
+            callback();
+          }
+
+          break;
+
         // TODO : comment
         case COMMANDS.MODULE_PROCESS_COMMAND_INVOKE:
           var functionName = message.functionName;
           var params = message.params;
 
-          var callback = function () {
+          callback = function () {
             process.send({
               sendTime: message.sendTime,
               command: message.command,
@@ -147,7 +186,7 @@ ModuleProcess.listenIPCMessages = function(moduleFn, moduleFileName, logger) {
 /**
  * <p>Make unique command token to use in send/receive model to distinguish calls for the child process.</p>
  *
- * @param command {COMMANDS}  A {@link COMMANDS} definition for possible commands.
+ * @param command {string}    A {@link COMMANDS} definition for possible commands.
  * @returns {string}          Token
  */
 ModuleProcess.makeCommandId = function(command) {
@@ -263,16 +302,26 @@ ModuleProcess.prototype.init = function(callback) {
       case COMMANDS.MODULE_PROCESS_COMMAND_INIT:
         var error = args[0];
         if (!error) {
+          this._stopped = false;
           this._initialized = true;
         }
         callback(error, !error ? this : null);
+        break;
+      case COMMANDS.MODULE_PROCESS_COMMAND_STOP:
+        this._stopped = true;
+        // Get a callback stored for the response command id
+        var stopCallback = this.getCallback(cpResponseMessage.commandId);
+        if (stopCallback) {
+          stopCallback.apply(this, args);                     // Invoke callback and
+          this.removeCallback(cpResponseMessage.commandId);   // remove callback from the queue afterwards
+        }
         break;
       case COMMANDS.MODULE_PROCESS_COMMAND_INVOKE:
         // Get a callback stored for the response command id
         var invokeCallback = this.getCallback(cpResponseMessage.commandId);
         if (invokeCallback) {
           invokeCallback.apply(this, args);                   // Invoke callback and
-          this.removeCallback(cpResponseMessage.commandId);  // remove callback from the queue afterwards
+          this.removeCallback(cpResponseMessage.commandId);   // remove callback from the queue afterwards
         }
         break;
     }
@@ -341,6 +390,37 @@ ModuleProcess.prototype.invoke = function(functionName, params) {
       commandId: commandId,
       functionName: functionName,
       params: params
+    });
+
+  };
+};
+
+/**
+ * Stops {@link ModuleProcess} sub-process executing {@link ModuleProcess~beforeModuleProcessStop} function if any
+ * defined on the module.
+ *
+ * @param force {boolean} Force exit the process even if {@link ModuleProcess~beforeModuleProcessStop} completed
+ *                        with error.
+ * @returns {Function}    Function with the only argument which is {@link ModuleProcess~onReadyCallback} to be
+ *                        executed once "stop" invocation has been processed.
+ */
+ModuleProcess.prototype.stop = function(force) {
+  var _this = this;
+
+  var commandId = ModuleProcess.makeCommandId(COMMANDS.MODULE_PROCESS_COMMAND_STOP);
+
+  /**
+   * The {@param callback} will be invoked by {@link getCallback} from within {@link init} function
+   * within {@link COMMANDS.MODULE_PROCESS_COMMAND_STOP} command branch.
+   */
+  return function(callback) {
+    _this.addCallback(commandId, callback);
+
+    _this.childProcess.send({
+      sendTime: new Date().getTime(),
+      command: COMMANDS.MODULE_PROCESS_COMMAND_STOP,
+      commandId: commandId,
+      params: {force: force}
     });
 
   };
