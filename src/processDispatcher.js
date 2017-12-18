@@ -230,7 +230,7 @@ ProcessDispatcher.prototype.stop = function(force) {
       _this.availableProcesses = _this.availableProcesses.filter(function(mp) { return !mp._stopped; });
       callback(error);
     });
-  }
+  };
 
 };
 
