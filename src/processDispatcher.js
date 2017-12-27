@@ -211,7 +211,7 @@ ProcessDispatcher.prototype.dispatch = function (functionName, params, opts) {
               callback(null, dispatchedResult);
             }
           }
-        ], callback)
+        ], callback);
       }
     ], callback);
   };
