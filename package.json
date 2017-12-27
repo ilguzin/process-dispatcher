@@ -7,6 +7,7 @@
     "test": "node_modules/mocha/bin/mocha -R spec test/*.test.js",
     "jshint": "node_modules/jshint/bin/jshint src/* test/*",
     "jsdoc": "node_modules/jsdoc/jsdoc.js --destination docs/ src/",
+    "preversion": "npm run jshint",
     "prepublish": "npm run jshint && npm test"
   },
   "repository": {
