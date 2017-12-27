@@ -169,7 +169,7 @@ ProcessDispatcher.prototype.dispatch = function (functionName, params, opts) {
 
   var _this = this;
 
-  var moduleProcess;
+  var existingModuleProcess;
 
   var availableProcessNum = this.availableProcesses.length;
 
@@ -178,36 +178,40 @@ ProcessDispatcher.prototype.dispatch = function (functionName, params, opts) {
 
     _this.logger.debug("Dispatching '" + functionName + "' to process number " + processNumber + ". Available processes number " + availableProcessNum);
 
-    moduleProcess = _this.availableProcesses[processNumber];
+    existingModuleProcess = _this.availableProcesses[processNumber];
   }
 
   return function (callback) {
     async.waterfall([
       function (callback) {
         // Make a decision on create new process or use existing one.
-        if (moduleProcess) {
-          _this.logger.debug("Make use of existing process for '" + _this.moduleName + "' invocation of '" + functionName + "'");
-          callback(null, moduleProcess);
+        if (existingModuleProcess) {
+          _this.logger.debug("Make use of existing process for '" + _this.moduleName + "' module to invoke '" + functionName + "'");
+          callback(null, existingModuleProcess);
         } else {
-          ProcessDispatcher.makeModuleProcess(_this.moduleName, _this.moduleOpts, _this.logger)(/** @param moduleProcess {ModuleProcess} */function (error, moduleProcess) {
-            if (!error) {
-              if (opts.termOnComplete) {
-                moduleProcess.stop(true)(function(error) {
-                  callback(error, moduleProcess);
-                });
-              } else {
-                _this.availableProcesses.push(moduleProcess);
-                _this.updateRRId();
-                callback(null, moduleProcess);
-              }
-            } else {
-              callback(error, moduleProcess);
-            }
-          });
+          _this.logger.debug("Create new process for '" + _this.moduleName + "' module to invoke '" + functionName + "'");
+          ProcessDispatcher.makeModuleProcess(_this.moduleName, _this.moduleOpts, _this.logger)(callback);
         }
       },
       function (moduleProcess, callback) {
-        ProcessDispatcher.dispatchToModuleProcess(moduleProcess, functionName, params)(callback);
+        async.waterfall([
+          function (callback) {
+            ProcessDispatcher.dispatchToModuleProcess(moduleProcess, functionName, params)(callback);
+          },
+          function (dispatchedResult, callback) {
+            if (!existingModuleProcess) {
+              if (opts.termOnComplete) {
+                moduleProcess.stop(true)(function (error) { callback(error, dispatchedResult); });
+              } else {
+                _this.availableProcesses.push(moduleProcess);
+                _this.updateRRId();
+                callback(null, dispatchedResult);
+              }
+            } else {
+              callback(null, dispatchedResult);
+            }
+          }
+        ], callback)
       }
     ], callback);
   };

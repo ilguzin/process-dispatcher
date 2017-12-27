@@ -284,8 +284,6 @@ ModuleProcess.prototype.init = function(callback) {
    */
   this.childProcess.on('message', (function(cpResponseMessage) {
 
-    this.logger.debug("Incoming message " + cpResponseMessage);
-
     var timeElapsed =
       cpResponseMessage.sendTime ? (new Date().getTime() - cpResponseMessage.sendTime) : null;
 

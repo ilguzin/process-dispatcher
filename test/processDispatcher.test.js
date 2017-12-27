@@ -3,6 +3,7 @@ chai.should();
 
 var ProcessDispatcher = require('../src/index').ProcessDispatcher;
 var makeMuteLogger = require('./helpers/utils').makeMuteLogger;
+// var makeConsoleLogger = require('./helpers/utils').makeConsoleLogger;
 
 describe("Test ProcessDispatcher class functionality", function () {
   this.timeout(5000); // Defined custom suite-level timeout
